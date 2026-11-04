@@ -63,9 +63,12 @@ jobs:
       - name: SHA-256 を書き出す
         shell: pwsh
         run: |
-          Get-ChildItem release -File | ForEach-Object {
-            "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name
-          } | Out-File -FilePath release/SHA256SUMS.txt -Encoding ascii
+          # 一覧を先に確定させる（書き出し中の SHA256SUMS.txt 自身を読まないように）
+          $files = @(Get-ChildItem release -File)
+          $lines = foreach ($f in $files) {
+            "{0}  {1}" -f (Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLower(), $f.Name
+          }
+          Set-Content -Path release/SHA256SUMS.txt -Value $lines -Encoding ascii
 
       - name: Releases に公開
         shell: pwsh
