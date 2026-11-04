@@ -16,41 +16,37 @@ Chrome の拡張機能と連携し、YouTube / YouTube Music の再生画面か�
 - 同時ダウンロード、キャンセル、再試行、完了通知
 - メタデータ・サムネイルの埋め込み、SponsorBlock による区間の削除
 
-## 構成
+## インストール
 
-| パス | 内容 |
+動作環境は Windows 10 / 11（64 ビット）。
+
+[Releases](https://github.com/pokobi/yt-downloader/releases/latest) から次のどちらかを取得する。
+
+| ファイル | 内容 |
 |---|---|
-| `src/ytdl/` | アプリ本体（Python / PySide6） |
-| `src/ytdl/tools.py` | yt-dlp・FFmpeg・Deno の取得と更新 |
-| `src/ytdl/jobs.py` | ダウンロードのキュー。yt-dlp は別プロセスで実行 |
-| `src/ytdl/server.py` | 拡張機能からの依頼を受けるローカル HTTP サーバー |
-| `src/ytdl/ui/` | 画面 |
-| `extension/` | ブラウザ拡張機能（Manifest V3） |
-| `tools/make_icons.py` | アイコンの生成（Pillow が必要） |
+| `YTDownloader-Setup-<版>.exe` | インストーラー。管理者権限は不要で、スタートメニューに登録される |
+| `YTDownloader-<版>-portable.zip` | 持ち運び版。展開して `YTDownloader.exe` を起動する |
 
-## ビルド
-
-Windows 10 / 11、Python 3.10 以降。
-
-```bat
-build.bat
-```
-
-`dist\YTDownloader\YTDownloader.exe` が生成され、同じフォルダに `extension` がコピーされる。
-ビルドせずに起動する場合は `run_dev.bat`。
+- 初回起動時に yt-dlp・FFmpeg・Deno を自動で取得するため、使えるようになるまで少し時間がかかる。
+- 署名のない exe のため、初回は「Windows によって PC が保護されました」と表示される。「詳細情報」→「実行」で起動できる。
+- アンインストールは「設定」→「アプリ」から行う。取得したツールとログも削除され、設定ファイルは残る。
 
 ## 拡張機能の導入
 
 1. Chrome で `chrome://extensions` を開く
 2. 右上の「デベロッパー モード」をオンにする
-3. 「パッケージ化されていない拡張機能を読み込む」で `extension` フォルダを選ぶ
+3. 「パッケージ化されていない拡張機能を読み込む」で、アプリのフォルダ内の `extension` フォルダを選ぶ
+   - インストーラー版：スタートメニューの「YT Downloader」→「拡張機能のフォルダ」、またはアプリの設定 →「ツール・連携」→「拡張機能のフォルダを開く」
+   - zip 版：展開したフォルダ内の `extension`
+4. 開いている YouTube のタブを再読み込みする
 
-拡張機能 ID は manifest の `key` により `hmllfgdnihfkggcipeklgjpdmblhhkfk` に固定されている。
+読み込んだ `extension` フォルダは削除・移動しない（Chrome がそのフォルダを直接読むため）。
 
 ## 通信
 
 アプリは `127.0.0.1:47863` で待ち受ける。ダウンロード依頼は Origin が
 `chrome-extension://hmllfgdnihfkggcipeklgjpdmblhhkfk` のものだけを受け付けるため、Web ページからは依頼できない。
+拡張機能 ID は manifest の `key` により固定されている。
 
 ## データの保存場所
 
@@ -59,6 +55,44 @@ build.bat
 | 設定 | `%APPDATA%\YTDownloader\settings.json` |
 | yt-dlp / FFmpeg / Deno | `%LOCALAPPDATA%\YTDownloader\bin` |
 | ログ | `%LOCALAPPDATA%\YTDownloader\logs` |
+
+## 開発
+
+### 構成
+
+| パス | 内容 |
+|---|---|
+| `src/ytdl/` | アプリ本体（Python / PySide6） |
+| `src/ytdl/tools.py` | yt-dlp・FFmpeg・Deno の取得と更新 |
+| `src/ytdl/jobs.py` | ダウンロードのキュー。yt-dlp は別プロセスで実行 |
+| `src/ytdl/server.py` | 拡張機能からの依頼を受けるローカル HTTP サーバー |
+| `src/ytdl/ui/` | 画面 |
+| `extension/` | Chrome 拡張機能（Manifest V3） |
+| `installer/ytdownloader.iss` | インストーラーの定義（Inno Setup 6） |
+| `.github/workflows/release.yml` | リリースの自動作成 |
+| `tools/make_icons.py` | アイコンの生成（Pillow が必要） |
+
+### ビルド
+
+Python 3.10 以降。
+
+```bat
+build.bat
+```
+
+`dist\YTDownloader\YTDownloader.exe` が生成され、同じフォルダに `extension` がコピーされる。
+ビルドせずに起動する場合は `run_dev.bat`。
+
+### リリース
+
+`src/ytdl/__init__.py` の `VERSION` を上げてコミットし、同じ版のタグを push する。
+
+```bat
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+GitHub Actions がインストーラーと zip を作り、Releases に公開する。タグと `VERSION` が一致しない場合は失敗する。
 
 ## 注意
 

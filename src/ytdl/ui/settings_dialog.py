@@ -161,7 +161,7 @@ class SettingsDialog(QDialog):
         ext.addWidget(open_ext)
         ext.addStretch(1)
         f.addRow("", ext)
-        f.addRow("", _note("Vivaldi で vivaldi://extensions を開き、右上の「デベロッパーモード」をオンにして、"
+        f.addRow("", _note("Chrome で chrome://extensions を開き、右上の「デベロッパー モード」をオンにして、"
                            "「パッケージ化されていない拡張機能を読み込む」でこのフォルダを選びます。"
                            f"拡張機能 ID：{EXTENSION_ID}"))
         tabs.addTab(w, "ツール・連携")
