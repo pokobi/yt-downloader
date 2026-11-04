@@ -61,10 +61,22 @@ Filename: "{app}\extension"; Description: "Chrome 拡張機能のフォルダを
 ; インストール先の exe だけを止め、zip 版など別の場所で動いているものには触れない
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Get-Process YTDownloader -ErrorAction SilentlyContinue | Where-Object {{ $_.Path -like '{app}\*' } | Stop-Process -Force"""; Flags: runhidden; RunOnceId: "StopApp"
 
-[Registry]
-; アプリが設定するログイン時の自動起動を、アンインストール時に消す
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "YTDownloader"; Flags: dontcreatekey uninsdeletevalue
-
 [UninstallDelete]
 ; アプリが取得したツール（yt-dlp / FFmpeg / Deno）・キャッシュ・ログを消す。設定（%APPDATA%）は残す
 Type: filesandordirs; Name: "{localappdata}\YTDownloader"
+
+[Code]
+const
+  RunKey = 'Software\Microsoft\Windows\CurrentVersion\Run';
+
+// アプリが設定するログイン時の自動起動を消す。
+// ただし登録がこのインストール先の exe を指しているときだけ（zip 版など別の場所の登録は残す）
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  Value: String;
+begin
+  if CurUninstallStep = usUninstall then
+    if RegQueryStringValue(HKCU, RunKey, 'YTDownloader', Value) then
+      if Pos(Lowercase(ExpandConstant('{app}\')), Lowercase(Value)) > 0 then
+        RegDeleteValue(HKCU, RunKey, 'YTDownloader');
+end;
