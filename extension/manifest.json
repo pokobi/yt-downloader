@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "YT Downloader Connector",
+  "short_name": "YT Downloader",
+  "version": "1.0.0",
+  "description": "YouTube / YouTube Music の画面にダウンロードボタンを追加し、PC の YT Downloader に送ります。",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyXFNbzxmT8hFh3F+xvSzTkZlzj+dr1DgUdutFDd/Xa1H2TOT0E/6XwSKwSvYadZAJCrvw0d8pSco5mK3PmvszZ97lYvlF99VNHtBCVDthu3Ofn6Q3ERh/UgFfCeFnLw+OXdzwKk61dTzI0tGq0SExREyvJor1rvMGwhk8JyZ1D0gN6QA9N2rusyOtt0suiL8OU8AaMeDt1B0W7wGbie2OfVx0y2HJO2MBBgMPNGkyc+Xfj7zezRoPNUwk51ULjQsC5HERIW0vnSlue5dymrA7TZPGSjT+XM4eKqZswAsU5LN+0TajUuL3hzngatInd9BZ8stPEOa2rH2Iifa0rJt9wIDAQAB",
+  "minimum_chrome_version": "116",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "YT Downloader",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["contextMenus", "activeTab"],
+  "host_permissions": ["http://127.0.0.1:47863/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*", "https://m.youtube.com/*", "https://music.youtube.com/*"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -1,0 +1,120 @@
+/* YouTube 側のスタイルとぶつからないよう、すべて ytdlx- で始まる名前にしている
+   配色はアプリと同じ：グラファイトの面と、強調色の「録音中の赤」 #d2364a だけ
+   動きは 1 種類のカーブ cubic-bezier(0.22, 1, 0.36, 1) で揃える */
+
+.ytdlx-btn {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #fff;
+}
+.ytdlx-btn svg { width: 24px; height: 24px; display: block; pointer-events: none; }
+.ytdlx-btn:focus-visible { outline: 2px solid #ededed; outline-offset: -4px; border-radius: 8px; }
+
+/* YouTube プレーヤーの操作バー（他のボタンと同じく、ホバーで少し明るくなるだけ） */
+.ytdlx-player.ytp-button {
+  width: 48px;
+  height: 100%;
+  min-height: 36px;
+  flex: none;
+  vertical-align: top;
+  opacity: 0.9;
+  transition: opacity 140ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ytdlx-player.ytp-button:hover { opacity: 1; }
+.ytdlx-player svg { width: 24px; height: 24px; }
+
+/* YouTube Music の再生バー */
+.ytdlx-music {
+  width: 40px;
+  height: 40px;
+  margin: 0 4px;
+  border-radius: 50%;
+  color: #fff;
+  opacity: 0.85;
+  transition: background-color 140ms cubic-bezier(0.22, 1, 0.36, 1), opacity 140ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ytdlx-music:hover { background: rgba(255, 255, 255, 0.1); opacity: 1; }
+
+/* 置き場所が見つからないとき（ショート動画など）の浮かせたボタン */
+.ytdlx-floating {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2147483000;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: #d2364a;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  transition: background-color 140ms cubic-bezier(0.22, 1, 0.36, 1), transform 140ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ytdlx-floating:hover { background: #c42f43; }
+.ytdlx-floating:active { transform: scale(0.97); }
+.ytdlx-floating-music { bottom: 96px; }
+
+/* メニュー */
+.ytdlx-menu {
+  position: fixed;
+  z-index: 2147483600;
+  min-width: 232px;
+  padding: 4px;
+  border-radius: 12px;
+  background: #19191b;
+  border: 1px solid #2a2a2c;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+  font-family: "Yu Gothic UI", "Segoe UI", Roboto, sans-serif;
+  color: #ededed;
+  animation: ytdlx-enter 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes ytdlx-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.ytdlx-menu-head {
+  padding: 8px 12px 4px;
+  font-size: 12px;
+  font-weight: 400;
+  color: #85858b;
+}
+.ytdlx-item {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 120ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ytdlx-item:hover, .ytdlx-item:focus-visible { background: #232325; }
+.ytdlx-item svg { width: 16px; height: 16px; flex: none; color: #a1a1a6; }
+.ytdlx-item span { flex: 1; }
+.ytdlx-item small { font-size: 12px; color: #85858b; }
+.ytdlx-sep { height: 1px; margin: 4px 8px; background: #2a2a2c; }
+
+/* トースト */
+.ytdlx-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 112px;
+  z-index: 2147483647;
+  max-width: 80vw;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #19191b;
+  border: 1px solid #2a2a2c;
+  color: #ededed;
+  font: 400 14px "Yu Gothic UI", "Segoe UI", Roboto, sans-serif;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 8px);
+  transition: opacity 180ms cubic-bezier(0.22, 1, 0.36, 1), transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ytdlx-toast.ytdlx-show { opacity: 1; transform: translate(-50%, 0); }
+.ytdlx-toast[data-kind="error"] { color: #f2a3a5; }

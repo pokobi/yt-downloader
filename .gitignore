@@ -1,0 +1,18 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# PyInstaller の生成物
+build/
+dist/
+
+# Claude Code（手元専用。CLAUDE.md は全体の git ignore でも除外している）
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+
+# その他
+*.log
+.DS_Store
+Thumbs.db
