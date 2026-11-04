@@ -140,7 +140,7 @@ class MainWindow(QMainWindow):
         et = QLabel("ダウンロードはまだありません")
         et.setObjectName("emptyTitle")
         et.setAlignment(Qt.AlignCenter)
-        ed = QLabel("URL を貼り付けて「動画」か「音声」を押すか、YouTube の再生画面のダウンロードボタンから追加します\n"
+        ed = QLabel("URL を貼り付けて「動画」か「音声」を押すか、YouTube の再生画面や X の投稿のダウンロードボタンから追加します\n"
                     "このウィンドウに URL をドラッグしても追加できます")
         ed.setObjectName("muted")
         ed.setAlignment(Qt.AlignCenter)

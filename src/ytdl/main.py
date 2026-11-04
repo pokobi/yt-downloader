@@ -154,8 +154,8 @@ class Controller(QObject):
             self.manager.add(u, mode)
         self.tray.showMessage(APP_NAME, f"{len(urls)} 件を追加しました。", QSystemTrayIcon.Information, 2500)
 
-    def _on_remote_download(self, url: str, mode: str, playlist) -> None:
-        job = self.manager.add(url, None if mode == "default" else mode, playlist)
+    def _on_remote_download(self, url: str, mode: str, playlist, items: int = 0) -> None:
+        job = self.manager.add(url, None if mode == "default" else mode, playlist, items)
         if self.settings.notify and not self.window.isVisible():
             kind = "音声" if job.mode == "audio" else "動画"
             self.tray.showMessage(APP_NAME, f"{kind}のダウンロードを開始します。", QSystemTrayIcon.Information, 2000)

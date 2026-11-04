@@ -15,7 +15,7 @@ from typing import Optional
 from PySide6.QtCore import QObject, Signal
 
 from ytdl import APP_NAME, EXTENSION_ID, SERVER_HOST, SERVER_PORT, VERSION
-from ytdl.jobs import normalize_url
+from ytdl.jobs import is_x_post, normalize_url, probe_post
 
 log = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ ALLOWED_HOSTS = {f"127.0.0.1:{SERVER_PORT}", f"localhost:{SERVER_PORT}"}
 
 class Bridge(QObject):
     """サーバースレッド → メインスレッドへの受け渡し。"""
-    download_requested = Signal(str, str, object)  # url, mode, playlist(None/True/False)
+    download_requested = Signal(str, str, object, int)  # url, mode, playlist(None/True/False), items
     show_requested = Signal()
 
 
@@ -34,6 +34,7 @@ class LocalServer:
         self.manager = manager
         self.bridge = Bridge()
         self.httpd: Optional[ThreadingHTTPServer] = None
+        self.probes = threading.BoundedSemaphore(3)  # 同時に動かす yt-dlp の確認は 3 つまで
         self.error = ""
 
     @property
@@ -167,8 +168,24 @@ def _make_handler(server: LocalServer):
                     return
                 if playlist not in (True, False, None):
                     playlist = None
-                server.bridge.download_requested.emit(url, mode or "default", playlist)
+                items = body.get("items")
+                items = items if isinstance(items, int) and not isinstance(items, bool) and 1 <= items <= 50 else 0
+                server.bridge.download_requested.emit(url, mode or "default", playlist, items)
                 self._send(202, {"ok": True})
+            elif path == "/api/probe":
+                # X の投稿に動画が何本あるか（このスレッドで yt-dlp を待つ。サーバーは要求ごとに別スレッド）
+                url = normalize_url(str(body.get("url", "")))
+                if not url or not is_x_post(url):
+                    self._send(400, {"ok": False, "error": "X の投稿の URL ではありません"})
+                    return
+                if server.probes.acquire(timeout=0):
+                    try:
+                        res = probe_post(url, server.manager.settings, server.manager.tools)
+                    finally:
+                        server.probes.release()
+                else:
+                    res = {"ok": False, "error": "確認の依頼が多すぎます。少し待ってから開き直してください"}
+                self._send(200, res)
             elif path == "/api/show":
                 server.bridge.show_requested.emit()
                 self._send(200, {"ok": True})

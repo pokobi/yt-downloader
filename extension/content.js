@@ -5,29 +5,7 @@
   window.__ytdlxInjected = true;
 
   const IS_MUSIC = location.hostname === "music.youtube.com";
-  // YouTube は innerHTML を禁止している（Trusted Types）ので、SVG は DOM で組み立てる
-  const SVG_NS = "http://www.w3.org/2000/svg";
-  const ICONS = {
-    download: ["M12 4.5v10.2m0 0-4.3-4.3m4.3 4.3 4.3-4.3M5.5 19.5h13"],
-    video: ["M4 5h11a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z", "m17 10 5-3v10l-5-3"],
-    audio: ["M9 18V5l12-2v13", "M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0z", "M21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"],
-  };
-  function makeIcon(name = "download", stroke = 2) {
-    const svg = document.createElementNS(SVG_NS, "svg");
-    svg.setAttribute("viewBox", "0 0 24 24");
-    svg.setAttribute("aria-hidden", "true");
-    for (const d of ICONS[name]) {
-      const path = document.createElementNS(SVG_NS, "path");
-      path.setAttribute("d", d);
-      path.setAttribute("fill", "none");
-      path.setAttribute("stroke", "currentColor");
-      path.setAttribute("stroke-width", String(stroke));
-      path.setAttribute("stroke-linecap", "round");
-      path.setAttribute("stroke-linejoin", "round");
-      svg.appendChild(path);
-    }
-    return svg;
-  }
+  const { makeIcon, openMenu, closeMenu, stopAll } = window.__ytdlx;
   const ID_RE = /^[\w-]{11}$/;
 
   // ---------- 今見ている動画・曲 ----------
@@ -61,63 +39,10 @@
     };
   }
 
-  // ---------- 送信 ----------
-  function send(url, mode, playlist) {
-    if (!chrome.runtime || !chrome.runtime.id) {
-      toast("拡張機能が更新されました。ページを再読み込みしてください。", "error");
-      return;
-    }
-    toast(mode === "audio" ? "音声のダウンロードを依頼中…" : "動画のダウンロードを依頼中…", "info", 1200);
-    try {
-      chrome.runtime.sendMessage({ type: "download", url, mode, playlist }, (res) => {
-        if (chrome.runtime.lastError || !res) {
-          toast("拡張機能と通信できません。ページを再読み込みしてください。", "error");
-        } else if (res.ok) {
-          toast(mode === "audio" ? "音声のダウンロードを開始しました" : "動画のダウンロードを開始しました", "ok");
-        } else {
-          toast(res.offline ? "YT Downloader が起動していません。PC でアプリを起動してください。" : res.error, "error", 4500);
-        }
-      });
-    } catch (_) {
-      toast("拡張機能が更新されました。ページを再読み込みしてください。", "error");
-    }
-  }
-
-  // ---------- トースト ----------
-  let toastEl = null;
-  let toastTimer = 0;
-  function toast(text, kind = "info", ms = 2600) {
-    if (!toastEl) {
-      toastEl = document.createElement("div");
-      toastEl.className = "ytdlx-toast";
-      document.documentElement.appendChild(toastEl);
-    }
-    toastEl.textContent = text;
-    toastEl.dataset.kind = kind;
-    toastEl.classList.add("ytdlx-show");
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toastEl && toastEl.classList.remove("ytdlx-show"), ms);
-  }
-
   // ---------- メニュー ----------
-  let menuEl = null;
-  function closeMenu() {
-    if (menuEl) { menuEl.remove(); menuEl = null; }
-    document.removeEventListener("mousedown", onOutside, true);
-    document.removeEventListener("keydown", onKey, true);
-  }
-  function onOutside(e) {
-    if (menuEl && !menuEl.contains(e.target) && !(e.target.closest && e.target.closest(".ytdlx-btn"))) closeMenu();
-  }
-  function onKey(e) { if (e.key === "Escape") closeMenu(); }
-
-  function openMenu(anchor) {
-    if (menuEl) { closeMenu(); return; }
+  function menuItems() {
     const t = currentTarget();
-    if (!t) { toast("動画が見つかりません", "error"); return; }
-
-    menuEl = document.createElement("div");
-    menuEl.className = "ytdlx-menu";
+    if (!t) return [{ note: "動画が見つかりません", error: true }];
     const items = [
       { label: "動画でダウンロード", sub: "映像＋音声", mode: "video", url: t.url, playlist: false },
       { label: "音声でダウンロード", sub: "曲だけ", mode: "audio", url: t.url, playlist: false },
@@ -127,53 +52,7 @@
       items.push({ label: "プレイリストを全部（動画）", mode: "video", url: t.playlistUrl, playlist: true });
       items.push({ label: "プレイリストを全部（音声）", mode: "audio", url: t.playlistUrl, playlist: true });
     }
-    const head = document.createElement("div");
-    head.className = "ytdlx-menu-head";
-    head.textContent = "YT Downloader";
-    menuEl.appendChild(head);
-    for (const it of items) {
-      if (it.sep) {
-        const s = document.createElement("div");
-        s.className = "ytdlx-sep";
-        menuEl.appendChild(s);
-        continue;
-      }
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = "ytdlx-item";
-      b.appendChild(makeIcon(it.mode === "audio" ? "audio" : "video", 1.5));
-      const l = document.createElement("span");
-      l.textContent = it.label;
-      b.appendChild(l);
-      if (it.sub) {
-        const s = document.createElement("small");
-        s.textContent = it.sub;
-        b.appendChild(s);
-      }
-      b.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        closeMenu();
-        send(it.url, it.mode, it.playlist);
-      });
-      menuEl.appendChild(b);
-    }
-    document.documentElement.appendChild(menuEl);
-
-    // ボタンの上（入らなければ下）に出す
-    const r = anchor.getBoundingClientRect();
-    const mw = menuEl.offsetWidth;
-    const mh = menuEl.offsetHeight;
-    let left = Math.min(window.innerWidth - mw - 8, Math.max(8, r.left + r.width / 2 - mw / 2));
-    let top = r.top - mh - 8;
-    if (top < 8) top = Math.min(window.innerHeight - mh - 8, r.bottom + 8);
-    menuEl.style.left = `${left}px`;
-    menuEl.style.top = `${top}px`;
-
-    setTimeout(() => {
-      document.addEventListener("mousedown", onOutside, true);
-      document.addEventListener("keydown", onKey, true);
-    }, 0);
+    return items;
   }
 
   // ---------- ボタン ----------
@@ -189,9 +68,8 @@
     b.addEventListener("mousedown", stop);
     b.addEventListener("dblclick", stop);
     b.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      openMenu(b);
+      stopAll(e);
+      openMenu(b, menuItems);
     });
     return b;
   }

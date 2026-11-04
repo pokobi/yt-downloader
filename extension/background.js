@@ -2,12 +2,12 @@
 // コンテンツスクリプト（ページ内のボタン）は直接 localhost に送れないので、ここが中継する。
 const API = "http://127.0.0.1:47863";
 
-async function call(path, body) {
+async function call(path, body, timeoutMs = 4000) {
   const opts = body === undefined
     ? { method: "GET", cache: "no-store" }
     : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 4000);
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(API + path, { ...opts, signal: ctrl.signal });
     const data = await res.json().catch(() => ({}));
@@ -22,14 +22,19 @@ async function call(path, body) {
   }
 }
 
-function download(url, mode, playlist) {
-  return call("/api/download", { url, mode: mode || "default", playlist: playlist ?? null });
+function download(url, mode, playlist, items) {
+  return call("/api/download", { url, mode: mode || "default", playlist: playlist ?? null, items: items ?? null });
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || typeof msg !== "object") return false;
   if (msg.type === "download") {
-    download(msg.url, msg.mode, msg.playlist).then(sendResponse);
+    download(msg.url, msg.mode, msg.playlist, msg.items).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "probe") {
+    // X の投稿に動画が何本あるかを、アプリ（yt-dlp）に確かめてもらう
+    call("/api/probe", { url: msg.url }, 25000).then(sendResponse);
     return true;
   }
   if (msg.type === "status") {

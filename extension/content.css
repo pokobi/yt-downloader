@@ -118,3 +118,39 @@
 }
 .ytdlx-toast.ytdlx-show { opacity: 1; transform: translate(-50%, 0); }
 .ytdlx-toast[data-kind="error"] { color: #f2a3a5; }
+
+/* X の操作列。灰色とホバーの青は X の操作ボタンと同じ値（ライト・ダークとも同じ色） */
+.ytdlx-xwrap { display: flex; flex: none; align-items: center; }
+.ytdlx-btn.ytdlx-x { color: rgb(113, 118, 123); }
+.ytdlx-btn.ytdlx-x:hover { color: rgb(29, 155, 240); }
+.ytdlx-xpill { display: inline-flex; align-items: center; justify-content: center; }
+.ytdlx-btn.ytdlx-x svg { width: 18.75px; height: 18.75px; }
+
+/* メニューの補足と、1 行に「動画」「音声」を並べる行（X の複数動画） */
+.ytdlx-note { padding: 8px 12px; font-size: 13px; line-height: 1.5; color: #a1a1a6; max-width: 280px; }
+.ytdlx-note-error { color: #f2a3a5; }
+.ytdlx-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+  padding: 0 4px 0 12px;
+  font-size: 14px;
+}
+.ytdlx-row > span { flex: 1; white-space: nowrap; }
+.ytdlx-chip {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #ededed;
+  cursor: pointer;
+  transition: background-color 120ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ytdlx-chip:hover, .ytdlx-chip:focus-visible { background: #232325; }
+.ytdlx-chip svg { width: 16px; height: 16px; color: #a1a1a6; }

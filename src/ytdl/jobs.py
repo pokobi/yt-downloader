@@ -43,7 +43,7 @@ def normalize_url(text: str) -> Optional[str]:
     text = text.strip().strip("<>\"'")
     if not text:
         return None
-    if text.startswith("www.") or text.startswith("youtu"):
+    if text.startswith(("www.", "youtu", "x.com/", "twitter.com/", "mobile.x.com/")):
         text = "https://" + text
     try:
         u = urllib.parse.urlparse(text)
@@ -52,6 +52,18 @@ def normalize_url(text: str) -> Optional[str]:
     if u.scheme not in ("http", "https") or not u.netloc or len(text) > 4000:
         return None
     return text
+
+
+X_HOSTS = ("x.com", "twitter.com", "mobile.x.com", "mobile.twitter.com", "www.x.com", "www.twitter.com")
+
+
+def is_x_post(url: str) -> bool:
+    """X（旧 Twitter）の投稿の URL か。"""
+    try:
+        u = urllib.parse.urlparse(url)
+    except ValueError:
+        return False
+    return (u.hostname or "").lower() in X_HOSTS and "/status/" in u.path
 
 
 def extract_urls(text: str) -> list[str]:
@@ -68,6 +80,7 @@ class Job:
     url: str
     mode: str  # "video" / "audio"
     playlist: bool
+    items: int = 0  # X の複数動画の投稿で、何本目だけを取るか（0 は全部）
     id: str = field(default_factory=lambda: f"j{next(_ids)}")
     title: str = ""
     uploader: str = ""
@@ -120,9 +133,19 @@ def build_command(job: Job, s, tools) -> list[str]:
     if s.cookies_browser:
         cmd += ["--cookies-from-browser", s.cookies_browser]
 
-    base = {"title_id": "%(title)s [%(id)s]", "uploader_title": "%(uploader|不明)s - %(title)s"}.get(
-        s.filename, "%(title)s")
-    if job.playlist:
+    x_post = is_x_post(job.url)
+    names = {"title_id": "%(title)s [%(id)s]", "uploader_title": "%(uploader|不明)s - %(title)s"}
+    if x_post:
+        # X の動画にはタイトルがなく、yt-dlp が「投稿者 - 本文の冒頭」をタイトルにする
+        # （複数動画なら末尾に #番号）。投稿者を重ねて付けないようにする
+        names.pop("uploader_title")
+    base = names.get(s.filename, "%(title)s")
+    if x_post:
+        # 1 つの投稿の動画は、プレイリスト用のフォルダを作らずにそのまま並べる
+        if job.items:
+            cmd += ["--yes-playlist", "--playlist-items", str(job.items)]
+        cmd += ["-o", f"{base}.%(ext)s"]
+    elif job.playlist:
         cmd += ["--yes-playlist", "-o",
                 f"%(playlist_title|)s/%(playlist_index&{{}} - |)s{base}.%(ext)s"]
     else:
@@ -203,6 +226,10 @@ ERROR_HINTS = [
     ("HTTP Error 403", "アクセスを拒否されました。ツールの更新後に再試行してください。"),
     ("Requested format is not available", "選んだ形式がありません。画質や形式を変えて再試行してください。"),
     ("Unsupported URL", "対応していない URL です。"),
+    ("NSFW tweet requires authentication", "センシティブな内容の投稿のため、X へのログインが必要です。設定でブラウザの Cookie を使うと取得できる場合があります。"),
+    ("only be available when logged in", "X へのログインが必要な投稿です。設定でブラウザの Cookie を使うと取得できる場合があります。"),
+    ("No video could be found in this tweet", "この投稿には動画がありません。"),
+    ("Requested tweet is unavailable", "投稿が見つかりません（削除・非公開、または URL の間違い）。"),
     ("could not find", "ブラウザの Cookie を読めませんでした。ブラウザを閉じてから再試行してください。"),
     ("Failed to decrypt", "ブラウザの Cookie を読めませんでした（暗号化のため）。Firefox か「使わない」を選んでください。"),
 ]
@@ -234,11 +261,12 @@ class DownloadManager(QObject):
         self._pump_request.connect(self._pump, Qt.ConnectionType.QueuedConnection)
 
     # ---------- 公開メソッド（メインスレッドから呼ぶ） ----------
-    def add(self, url: str, mode: Optional[str] = None, playlist: Optional[bool] = None) -> Job:
+    def add(self, url: str, mode: Optional[str] = None, playlist: Optional[bool] = None, items: int = 0) -> Job:
         mode = mode if mode in ("video", "audio") else self.settings.default_mode
         if playlist is None:
             playlist = self.settings.playlist
-        job = Job(url=url, mode=mode, playlist=bool(playlist), summary=self.settings.summary(mode))
+        job = Job(url=url, mode=mode, playlist=bool(playlist), items=max(0, int(items or 0)),
+                  summary=self.settings.summary(mode))
         with self._lock:
             self.jobs[job.id] = job
         log.info("追加: %s (%s)", url, mode)
@@ -481,6 +509,42 @@ class DownloadManager(QObject):
                     continue
         if candidates:
             threading.Thread(target=run, daemon=True).start()
+
+
+def probe_post(url: str, s, tools, timeout: float = 20.0) -> dict:
+    """X の投稿に動画が何本あるかを yt-dlp に調べさせる（ダウンロードはしない）。"""
+    if not tools.ready:
+        return {"ok": False, "error": "yt-dlp を用意できていません"}
+    cmd = [str(tools.ytdlp.path), "--ignore-config", "--no-colors", "--encoding", "utf-8",
+           "--cache-dir", str(CACHE_DIR / "yt-dlp"), "--flat-playlist", "--yes-playlist", "-J"]
+    if s.cookies_browser:
+        cmd += ["--cookies-from-browser", s.cookies_browser]
+    cmd += ["--", url]
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+    try:
+        r = subprocess.run(cmd, capture_output=True, timeout=timeout, stdin=subprocess.DEVNULL,
+                           env=env, creationflags=CREATE_NO_WINDOW)
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": "動画の本数を確認できませんでした（時間切れ）"}
+    except OSError as e:
+        return {"ok": False, "error": f"yt-dlp を起動できません（{e}）"}
+    out = r.stdout.decode("utf-8", "replace").strip()
+    if r.returncode != 0 or not out.startswith("{"):
+        err = r.stderr.decode("utf-8", "replace")
+        last = next((ln[6:].strip() for ln in reversed(err.splitlines()) if ln.startswith("ERROR:")), "")
+        return {"ok": False, "error": error_hint(last) or last or "動画の本数を確認できませんでした"}
+    try:
+        info = json.loads(out)
+    except ValueError:
+        return {"ok": False, "error": "動画の本数を確認できませんでした"}
+    if info.get("_type") == "playlist":
+        count = len(info.get("entries") or [])
+    else:
+        count = 1 if info.get("formats") or info.get("url") else 0
+    if count == 0:
+        return {"ok": False, "error": "この投稿には動画がありません。"}
+    return {"ok": True, "count": count}
 
 
 def _kill_tree(pid: int) -> None:
