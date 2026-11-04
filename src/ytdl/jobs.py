@@ -168,6 +168,10 @@ def build_command(job: Job, s, tools) -> list[str]:
             sort = {"mp4": f"res{height},ext:mp4:m4a", "webm": f"res{height},ext:webm:webm"}.get(
                 s.video_container, f"res{height}")
         merge = {"mp4": "mp4/mkv", "webm": "webm/mkv"}.get(s.video_container, "mkv")
+        if x_post and s.video_container == "mp4":
+            # X は H.264 + AAC だが音声のコーデック名を返さないため、yt-dlp が mp4 に入るか判断できず
+            # mkv にしてしまう。X では mp4 に決め打ちする
+            merge = "mp4"
         cmd += ["-f", "bv*+ba/b", "-S", sort, "--merge-output-format", merge]
         if s.embed_thumbnail and s.video_container != "webm":
             cmd += ["--embed-thumbnail"]
