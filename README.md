@@ -1,7 +1,7 @@
 # YT Downloader
 
 Windows の通知領域に常駐する、yt-dlp ベースの動画・音声ダウンローダー。
-Chromium 系ブラウザ（Vivaldi など）の拡張機能と連携し、YouTube / YouTube Music の再生画面からダウンロードできる。
+Chrome の拡張機能と連携し、YouTube / YouTube Music の再生画面からダウンロードできる。
 
 ## 機能
 
@@ -41,8 +41,8 @@ build.bat
 
 ## 拡張機能の導入
 
-1. `vivaldi://extensions`（Chrome は `chrome://extensions`）を開く
-2. デベロッパーモードをオンにする
+1. Chrome で `chrome://extensions` を開く
+2. 右上の「デベロッパー モード」をオンにする
 3. 「パッケージ化されていない拡張機能を読み込む」で `extension` フォルダを選ぶ
 
 拡張機能 ID は manifest の `key` により `hmllfgdnihfkggcipeklgjpdmblhhkfk` に固定されている。
