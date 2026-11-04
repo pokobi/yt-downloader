@@ -58,7 +58,8 @@ Filename: "{app}\extension"; Description: "Chrome 拡張機能のフォルダを
 
 [UninstallRun]
 ; 常駐しているアプリを止める（CloseApplications で閉じられなかった場合の保険）
-Filename: "{sys}\taskkill.exe"; Parameters: "/IM {#AppExe} /F"; Flags: runhidden; RunOnceId: "StopApp"
+; インストール先の exe だけを止め、zip 版など別の場所で動いているものには触れない
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Get-Process YTDownloader -ErrorAction SilentlyContinue | Where-Object {{ $_.Path -like '{app}\*' } | Stop-Process -Force"""; Flags: runhidden; RunOnceId: "StopApp"
 
 [Registry]
 ; アプリが設定するログイン時の自動起動を、アンインストール時に消す

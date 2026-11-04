@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "YT Downloader Connector",
   "short_name": "YT Downloader",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "YouTube / YouTube Music の画面にダウンロードボタンを追加し、PC の YT Downloader に送ります。",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyXFNbzxmT8hFh3F+xvSzTkZlzj+dr1DgUdutFDd/Xa1H2TOT0E/6XwSKwSvYadZAJCrvw0d8pSco5mK3PmvszZ97lYvlF99VNHtBCVDthu3Ofn6Q3ERh/UgFfCeFnLw+OXdzwKk61dTzI0tGq0SExREyvJor1rvMGwhk8JyZ1D0gN6QA9N2rusyOtt0suiL8OU8AaMeDt1B0W7wGbie2OfVx0y2HJO2MBBgMPNGkyc+Xfj7zezRoPNUwk51ULjQsC5HERIW0vnSlue5dymrA7TZPGSjT+XM4eKqZswAsU5LN+0TajUuL3hzngatInd9BZ8stPEOa2rH2Iifa0rJt9wIDAQAB",
   "minimum_chrome_version": "116",
