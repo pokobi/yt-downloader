@@ -123,8 +123,9 @@ class SettingsDialog(QDialog):
         f.addRow("SponsorBlock", self.sponsorblock)
         self.cookies = _combo("cookies_browser", s.cookies_browser)
         f.addRow("ブラウザの Cookie", self.cookies)
-        f.addRow("", _note("年齢制限・メンバー限定の動画や、ボット判定されたときに使います。"
-                           "Chrome 系ブラウザは起動中だと読めないことがあります。"))
+        f.addRow("", _note("YouTube と X は、拡張機能のボタンから依頼すると拡張機能がブラウザの Cookie を"
+                           "渡すため、ここは「使わない」のままで構いません。ここで選んだブラウザは、"
+                           "拡張機能からの Cookie がないときだけ使います（Chrome 系は起動中だと読めません）。"))
         tabs.addTab(w, "詳細")
 
         # ---- ツール・連携 ----

@@ -22,8 +22,45 @@ async function call(path, body, timeoutMs = 4000) {
   }
 }
 
-function download(url, mode, playlist, items) {
-  return call("/api/download", { url, mode: mode || "default", playlist: playlist ?? null, items: items ?? null });
+// ---- Cookie ----
+// YouTube はボット判定のため、ログイン中のブラウザの Cookie がないと取得できないことがある。
+// yt-dlp はブラウザの起動中に Cookie のファイルを読めないので、ここで読んでアプリに渡す。
+// 渡す先は PC 内のアプリ（127.0.0.1）だけで、対象は URL のサイトの Cookie に限る。
+const COOKIE_SITES = [
+  { hosts: /(^|\.)(youtube\.com|youtu\.be)$/, domains: ["youtube.com"] },
+  { hosts: /(^|\.)(x\.com|twitter\.com)$/, domains: ["x.com"] },
+];
+
+async function cookiesFor(url) {
+  let host = "";
+  try { host = new URL(url).hostname.toLowerCase(); } catch (_) { return null; }
+  const site = COOKIE_SITES.find((s) => s.hosts.test(host));
+  if (!site || !chrome.cookies) return null;
+  try {
+    const lists = await Promise.all(site.domains.map((domain) => chrome.cookies.getAll({ domain })));
+    const out = [];
+    for (const c of lists.flat()) {
+      out.push({
+        domain: c.domain, hostOnly: !!c.hostOnly, path: c.path || "/", secure: !!c.secure,
+        expires: c.session ? 0 : Math.floor(c.expirationDate || 0), name: c.name, value: c.value,
+      });
+    }
+    return out.length ? out : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function download(url, mode, playlist, items) {
+  const cookies = await cookiesFor(url);
+  return call("/api/download", {
+    url, mode: mode || "default", playlist: playlist ?? null, items: items ?? null, cookies,
+  });
+}
+
+async function probe(url) {
+  const cookies = await cookiesFor(url);
+  return call("/api/probe", { url, cookies }, 25000);
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -34,7 +71,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg.type === "probe") {
     // X の投稿に動画が何本あるかを、アプリ（yt-dlp）に確かめてもらう
-    call("/api/probe", { url: msg.url }, 25000).then(sendResponse);
+    probe(msg.url).then(sendResponse);
     return true;
   }
   if (msg.type === "status") {

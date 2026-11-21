@@ -1,6 +1,6 @@
 APP_NAME = "YT Downloader"
 APP_ID = "YTDownloader"
-VERSION = "1.1.1"
+VERSION = "1.2.0"
 
 # ブラウザ拡張機能との通信設定
 SERVER_HOST = "127.0.0.1"

@@ -14,7 +14,7 @@ from typing import Optional
 
 from PySide6.QtCore import QObject, Signal
 
-from ytdl import APP_NAME, EXTENSION_ID, SERVER_HOST, SERVER_PORT, VERSION
+from ytdl import APP_NAME, EXTENSION_ID, SERVER_HOST, SERVER_PORT, VERSION, cookies
 from ytdl.jobs import is_x_post, normalize_url, probe_post
 
 log = logging.getLogger(__name__)
@@ -72,6 +72,17 @@ class LocalServer:
         }
 
 
+def _save_cookies(url: str, data) -> None:
+    """拡張機能が添えてきたブラウザの Cookie を保存する（中身はログに出さない）。"""
+    if not data:
+        return
+    try:
+        if cookies.save(url, data):
+            log.info("ブラウザの Cookie を受け取りました: %s", cookies.site_of(url))
+    except Exception:
+        log.exception("Cookie を保存できません")
+
+
 def _make_handler(server: LocalServer):
     class Handler(BaseHTTPRequestHandler):
         server_version = "YTDownloader"
@@ -106,7 +117,7 @@ def _make_handler(server: LocalServer):
                 return None
             if length <= 0:
                 return None
-            if length > 64 * 1024:
+            if length > 1024 * 1024:  # Cookie が付くことがあるので少し大きめ
                 self.close_connection = True
                 return None
             try:
@@ -170,6 +181,7 @@ def _make_handler(server: LocalServer):
                     playlist = None
                 items = body.get("items")
                 items = items if isinstance(items, int) and not isinstance(items, bool) and 1 <= items <= 50 else 0
+                _save_cookies(url, body.get("cookies"))
                 server.bridge.download_requested.emit(url, mode or "default", playlist, items)
                 self._send(202, {"ok": True})
             elif path == "/api/probe":
@@ -178,6 +190,7 @@ def _make_handler(server: LocalServer):
                 if not url or not is_x_post(url):
                     self._send(400, {"ok": False, "error": "X の投稿の URL ではありません"})
                     return
+                _save_cookies(url, body.get("cookies"))
                 if server.probes.acquire(timeout=0):
                     try:
                         res = probe_post(url, server.manager.settings, server.manager.tools)

@@ -13,6 +13,7 @@ from ytdl import APP_ID, APP_NAME, VERSION
 from ytdl import autostart
 from ytdl.jobs import DONE, ERROR, error_hint, extract_urls
 from ytdl.logsetup import setup_logging
+from ytdl import cookies
 from ytdl.paths import ensure_dirs, is_frozen
 from ytdl.server import LocalServer
 from ytdl.settings import Settings
@@ -265,6 +266,8 @@ def main() -> int:
     QLocalServer.removeServer(INSTANCE_NAME)
     if not instance.listen(INSTANCE_NAME):
         log.warning("多重起動防止の待ち受けに失敗: %s", instance.errorString())
+
+    cookies.cleanup_jobs()  # 前回の終了時に残った Cookie の写しを消す（多重起動でないと分かってから）
 
     try:
         controller = Controller(app, start_hidden=args.tray)

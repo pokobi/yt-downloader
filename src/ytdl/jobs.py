@@ -19,6 +19,7 @@ from typing import Optional
 
 from PySide6.QtCore import QObject, Qt, Signal
 
+from ytdl import cookies
 from ytdl.net import http_get
 from ytdl.paths import BIN_DIR, CACHE_DIR
 from ytdl.tools import CREATE_NO_WINDOW
@@ -101,6 +102,7 @@ class Job:
     # 内部用
     proc: Optional[subprocess.Popen] = None
     cancel_requested: bool = False
+    cookie_file: Optional[Path] = None  # 拡張機能から受け取った Cookie の写し（ジョブの間だけ）
     parts: int = 1
     part_index: int = 0
 
@@ -130,7 +132,9 @@ def build_command(job: Job, s, tools) -> list[str]:
         cmd += ["--ffmpeg-location", str(tools.ffmpeg.path.parent)]
     if tools.deno.ok:
         cmd += ["--js-runtimes", f"deno:{tools.deno.path}"]
-    if s.cookies_browser:
+    if job.cookie_file:
+        cmd += ["--cookies", str(job.cookie_file)]
+    elif s.cookies_browser:
         cmd += ["--cookies-from-browser", s.cookies_browser]
 
     x_post = is_x_post(job.url)
@@ -220,7 +224,10 @@ def _fmt_eta(sec: Optional[float]) -> str:
 
 
 ERROR_HINTS = [
-    ("Sign in to confirm", "YouTube にボット判定されました。設定でブラウザの Cookie を使うか、時間をおいて再試行してください。"),
+    ("Sign in to confirm", "YouTube にボット判定されました。ブラウザで YouTube にログインした状態で、"
+                           "拡張機能のボタンから依頼し直してください（拡張機能がブラウザの Cookie を渡します）。"),
+    ("Could not copy", "ブラウザの起動中は、その Cookie を読めません。設定の「ブラウザの Cookie」を「使わない」にして、"
+                       "拡張機能のボタンから依頼してください（拡張機能がブラウザの Cookie を渡します）。"),
     ("Private video", "非公開の動画です。"),
     ("Video unavailable", "動画が見つかりません（削除・非公開・地域制限、または URL の間違い）。"),
     ("This video is unavailable", "動画が見つかりません（削除・非公開・地域制限、または URL の間違い）。"),
@@ -230,8 +237,8 @@ ERROR_HINTS = [
     ("HTTP Error 403", "アクセスを拒否されました。ツールの更新後に再試行してください。"),
     ("Requested format is not available", "選んだ形式がありません。画質や形式を変えて再試行してください。"),
     ("Unsupported URL", "対応していない URL です。"),
-    ("NSFW tweet requires authentication", "センシティブな内容の投稿のため、X へのログインが必要です。設定でブラウザの Cookie を使うと取得できる場合があります。"),
-    ("only be available when logged in", "X へのログインが必要な投稿です。設定でブラウザの Cookie を使うと取得できる場合があります。"),
+    ("NSFW tweet requires authentication", "センシティブな内容の投稿のため、X へのログインが必要です。ブラウザで X にログインした状態で、拡張機能のボタンから依頼してください。"),
+    ("only be available when logged in", "X へのログインが必要な投稿です。ブラウザで X にログインした状態で、拡張機能のボタンから依頼してください。"),
     ("No video could be found in this tweet", "この投稿には動画がありません。"),
     ("Requested tweet is unavailable", "投稿が見つかりません（削除・非公開、または URL の間違い）。"),
     ("could not find", "ブラウザの Cookie を読めませんでした。ブラウザを閉じてから再試行してください。"),
@@ -379,6 +386,8 @@ class DownloadManager(QObject):
     def _worker(self, job: Job) -> None:
         try:
             Path(self.settings.save_dir).mkdir(parents=True, exist_ok=True)
+            cookies.discard(job.cookie_file)
+            job.cookie_file = cookies.job_copy(job.url, job.id)
             cmd = build_command(job, self.settings, self.tools)
             job.log.append("$ " + " ".join(f'"{c}"' if " " in c else c for c in cmd))
             env = os.environ.copy()
@@ -390,6 +399,8 @@ class DownloadManager(QObject):
                                         creationflags=CREATE_NO_WINDOW)
         except Exception as e:
             log.exception("yt-dlp を起動できません")
+            cookies.discard(job.cookie_file)
+            job.cookie_file = None
             self._finish(job, ERROR, "起動に失敗", str(e))
             return
 
@@ -411,6 +422,8 @@ class DownloadManager(QObject):
                 self.job_changed.emit(job)
         code = job.proc.wait()
         job.proc = None
+        cookies.discard(job.cookie_file)
+        job.cookie_file = None
 
         if job.cancel_requested:
             self._finish(job, CANCELLED, "キャンセルしました")
@@ -521,7 +534,10 @@ def probe_post(url: str, s, tools, timeout: float = 20.0) -> dict:
         return {"ok": False, "error": "yt-dlp を用意できていません"}
     cmd = [str(tools.ytdlp.path), "--ignore-config", "--no-colors", "--encoding", "utf-8",
            "--cache-dir", str(CACHE_DIR / "yt-dlp"), "--flat-playlist", "--yes-playlist", "-J"]
-    if s.cookies_browser:
+    cookie_file = cookies.job_copy(url, f"probe{threading.get_ident()}")
+    if cookie_file:
+        cmd += ["--cookies", str(cookie_file)]
+    elif s.cookies_browser:
         cmd += ["--cookies-from-browser", s.cookies_browser]
     cmd += ["--", url]
     env = os.environ.copy()
@@ -533,6 +549,8 @@ def probe_post(url: str, s, tools, timeout: float = 20.0) -> dict:
         return {"ok": False, "error": "動画の本数を確認できませんでした（時間切れ）"}
     except OSError as e:
         return {"ok": False, "error": f"yt-dlp を起動できません（{e}）"}
+    finally:
+        cookies.discard(cookie_file)
     out = r.stdout.decode("utf-8", "replace").strip()
     if r.returncode != 0 or not out.startswith("{"):
         err = r.stderr.decode("utf-8", "replace")
